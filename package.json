@@ -1,0 +1,6 @@
+{
+  "name": "lease-redline",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}

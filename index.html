@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Upload your LOI or lease and get a term-by-term negotiation review plus a ready-to-send reply to your property manager.">
+<title>Lease Redline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,700;1,500&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+/* Layout: a marked-up lease. Intake panel on the left like the document being reviewed, the redline report on the right; stacks on phones. */
+:root{
+  --paper:#f7f8fa; --sheet:#ffffff; --ink:#18223a; --muted:#5b6478; --rule:#dde1e9;
+  --red:#c5281c; --red-soft:#fbe9e7; --amber:#9a5b00; --amber-soft:#fdf1dc;
+  --green:#1e7a4c; --green-soft:#e3f3ea; --grey-soft:#eef0f4;
+  --focus:#2f5bd3;
+  --display:"Spectral", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0f1420; --sheet:#171e2d; --ink:#e7eaf2; --muted:#9aa3b8; --rule:#2a3347;
+  --red:#ff7a6b; --red-soft:#3a1d1b; --amber:#f0b257; --amber-soft:#33270f;
+  --green:#5fd39a; --green-soft:#12301f; --grey-soft:#222a3b; --focus:#8aa8ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1420; --sheet:#171e2d; --ink:#e7eaf2; --muted:#9aa3b8; --rule:#2a3347;
+  --red:#ff7a6b; --red-soft:#3a1d1b; --amber:#f0b257; --amber-soft:#33270f;
+  --green:#5fd39a; --green-soft:#12301f; --grey-soft:#222a3b; --focus:#8aa8ff; color-scheme:dark}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;-webkit-text-size-adjust:100%}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:16px;padding-block:28px 64px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:24px}
+h1{font-family:var(--display);font-size:clamp(30px,5vw,44px);line-height:1;margin:0;font-weight:700;letter-spacing:-.01em}
+h1 em{color:var(--red);font-style:italic;font-weight:500}
+.tag{font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.lede{color:var(--muted);max-width:62ch;margin:8px 0 0}
+.grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:16px}
+@media (min-width:861px){.panel{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}}
+h2{font-family:var(--display);font-size:22px;margin:0;font-weight:700;text-wrap:balance}
+h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:0;color:var(--muted);font-weight:600}
+label.lbl{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+.drop{border:1.5px dashed var(--rule);border-radius:6px;padding:14px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--red);background:var(--red-soft)}
+.drop:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.doc-ico{flex:none;width:34px;height:42px;border:1.5px solid var(--ink);border-radius:2px;position:relative;font-family:var(--mono);font-size:10px;display:grid;place-items:end center;padding-bottom:3px;font-weight:500}
+.doc-ico::before{content:"";position:absolute;top:8px;left:6px;right:6px;height:1.5px;background:var(--red);box-shadow:0 6px 0 var(--muted),0 12px 0 var(--muted)}
+.drop .t{min-width:0}
+.drop .t b{display:block;font-size:14px}
+.drop .t span{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.drop.has .doc-ico{background:var(--ink);color:var(--sheet)}
+.drop.has .doc-ico::before{background:var(--red)}
+.clear{margin-left:auto;background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px;text-decoration:underline;padding:4px}
+details.paste summary{cursor:pointer;font-size:13px;color:var(--muted)}
+textarea,input[type=text],select{width:100%;font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:8px 10px}
+textarea:focus,input:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+textarea{resize:vertical;min-height:90px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{font:inherit;font-weight:600;font-size:15px;border-radius:4px;padding:12px 16px;cursor:pointer;border:1.5px solid var(--ink)}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn.ghost{background:transparent;color:var(--ink)}
+.small{font-size:12.5px;color:var(--muted);margin:0}
+.status{font-size:13.5px;border-left:3px solid var(--red);padding:8px 12px;background:var(--red-soft);border-radius:0 4px 4px 0}
+.status.info{border-color:var(--ink);background:var(--grey-soft)}
+
+/* Report */
+.report{display:flex;flex-direction:column;gap:22px;min-width:0}
+.banner{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;background:var(--grey-soft);border-radius:4px;padding:8px 12px;color:var(--muted)}
+.summary{display:flex;flex-direction:column;gap:10px}
+.summary p{margin:0;max-width:70ch}
+.tally{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:5px 12px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer;display:inline-flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.terms{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);overflow:hidden}
+.term{padding:10px 14px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);min-width:0}
+.term .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.term .v{font-family:var(--mono);font-size:13.5px;overflow-wrap:anywhere}
+.section-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--rule);padding-bottom:6px}
+.findings{display:flex;flex-direction:column;gap:10px}
+.f{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;position:relative}
+.f::before{content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:4px;border-radius:6px 0 0 6px;background:var(--stripe,var(--rule))}
+.f.missing{--stripe:var(--red)} .f.negotiate{--stripe:var(--amber)} .f.ok{--stripe:var(--green)} .f.unclear{--stripe:var(--muted)}
+.f-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.f-title{font-weight:700;font-size:15.5px;margin-right:auto}
+.pill{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:3px;padding:2px 7px}
+.pill.missing{background:var(--red-soft);color:var(--red)}
+.pill.negotiate{background:var(--amber-soft);color:var(--amber)}
+.pill.ok{background:var(--green-soft);color:var(--green)}
+.pill.unclear,.pill.na{background:var(--grey-soft);color:var(--muted)}
+.prio{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.prio.high{color:var(--red)}
+.f-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:560px){.f-cols{grid-template-columns:minmax(0,1fr)}}
+.f-cols .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px}
+.found{font-size:14px}
+.found q{font-family:var(--display);font-style:italic;quotes:"\201C" "\201D"}
+.target{font-size:14px}
+.ask{font-size:14px;background:var(--paper);border-radius:4px;padding:10px 12px;border-left:2px solid var(--ink)}
+.ask b{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;display:block;color:var(--muted);margin-bottom:2px}
+.why{font-size:13px;color:var(--muted);margin:0}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+td.del{color:var(--red);text-decoration:line-through;text-decoration-thickness:1px}
+.email{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.email textarea{min-height:340px;font-family:var(--body);line-height:1.6;background:var(--sheet)}
+.email-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.playbook{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:4px 16px}
+.playbook summary{cursor:pointer;padding:12px 0;font-weight:600}
+.pb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px 24px;padding:4px 0 16px}
+.pb-grid h4{margin:0 0 4px;font-family:var(--display);font-size:16px}
+.pb-grid ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--muted)}
+.legal{margin:12px 0 0;max-width:72ch;font-size:13.5px;line-height:1.5;border:1px solid var(--rule);border-left:3px solid var(--amber);background:var(--amber-soft);border-radius:0 4px 4px 0;padding:10px 14px}
+.legal b{color:var(--ink)}
+.legal-line{font-size:12.5px;color:var(--muted);margin:0;border-top:1px solid var(--rule);padding-top:10px}
+.foot{font-size:12.5px;color:var(--muted);border-top:1px solid var(--rule);padding-top:14px;max-width:80ch}
+.progress{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:28px 24px;display:flex;flex-direction:column;gap:14px}
+.progress.err{border-color:var(--red);background:var(--red-soft)}
+.progress h2{display:flex;align-items:center;gap:10px}
+.progress .big-spin{width:22px;height:22px;border-width:3px;margin:0}
+.bar{height:8px;border-radius:999px;background:var(--grey-soft);overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--red);border-radius:999px;transition:width .4s ease}
+.progress .keep{font-weight:600}
+@media (prefers-reduced-motion:reduce){.bar>span{transition:none}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--rule);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}.drop{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="tag">LOI &amp; lease review</div>
+      <h1>Lease <em>Redline</em></h1>
+      <p class="lede">Upload the Letter of Intent or lease your landlord sent. We check every term against our negotiation playbook, show what to push back on, and draft the reply to your property manager.</p>
+      <p class="legal" role="note"><b>Not legal advice.</b> Lease Redline gives general business guidance to help you prepare for negotiations. It is not a law firm, does not provide legal advice, and using it does not create an attorney-client relationship. Reviews are generated by AI and can miss or misread terms. Have a licensed commercial real estate attorney review your lease before you sign.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- INTAKE -->
+    <form class="panel" id="intake" autocomplete="off">
+      <h2>Your documents</h2>
+
+      <div>
+        <label class="lbl" for="loiFile">Letter of Intent (LOI)</label>
+        <label class="drop" id="loiDrop">
+          <input type="file" id="loiFile" accept=".pdf,.docx,.txt,.md,application/pdf">
+          <span class="doc-ico">LOI</span>
+          <span class="t"><b id="loiName">Choose or drop a file</b><span id="loiMeta">PDF, Word (.docx) or text</span></span>
+          <button type="button" class="clear" id="loiClear" hidden>Remove</button>
+        </label>
+      </div>
+
+      <div>
+        <label class="lbl" for="leaseFile">Lease</label>
+        <label class="drop" id="leaseDrop">
+          <input type="file" id="leaseFile" accept=".pdf,.docx,.txt,.md,application/pdf">
+          <span class="doc-ico">LSE</span>
+          <span class="t"><b id="leaseName">Choose or drop a file</b><span id="leaseMeta">PDF, Word (.docx) or text</span></span>
+          <button type="button" class="clear" id="leaseClear" hidden>Remove</button>
+        </label>
+      </div>
+
+      <details class="paste">
+        <summary>Or paste the text instead</summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <textarea id="loiPaste" placeholder="Paste LOI text"></textarea>
+          <textarea id="leasePaste" placeholder="Paste lease text"></textarea>
+        </div>
+      </details>
+
+      <div class="row2">
+        <div>
+          <label class="lbl" for="bizName">Your name</label>
+          <input type="text" id="bizName" placeholder="For the email sign-off">
+        </div>
+        <div>
+          <label class="lbl" for="tone">Email tone</label>
+          <select id="tone">
+            <option value="friendly">Friendly</option>
+            <option value="balanced" selected>Balanced</option>
+            <option value="firm">Firm</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="lbl" for="notes">Anything we should know <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <textarea id="notes" placeholder="e.g. Nutrition club, 1,200 sq ft in a strip center, opening in spring, want weekend hours"></textarea>
+      </div>
+
+      <div id="codeWrap" hidden>
+        <label class="lbl" for="accessCode">Access code</label>
+        <input type="text" id="accessCode" placeholder="From whoever shared this site">
+      </div>
+
+      <button type="submit" class="btn primary" id="go" disabled>Review my documents</button>
+      <button type="button" class="btn ghost" id="stop" hidden>Stop</button>
+      <div id="msg" class="status info" hidden></div>
+      <p class="small">Your files are read in your browser and sent securely to Claude for this one review. Nothing is stored.</p>
+    </form>
+
+    <!-- REPORT -->
+    <main class="report" id="report" aria-live="polite"></main>
+  </div>
+
+  <details class="playbook" style="margin-top:32px">
+    <summary>The playbook we check against</summary>
+    <div class="pb-grid" id="pbGrid"></div>
+  </details>
+
+  <p class="foot" style="margin-top:20px"><b>Disclaimer:</b> Lease Redline provides general business guidance, not legal advice, and no attorney-client relationship is created by using it. Reviews are AI-generated and may contain errors. Commercial leases vary by state. Before you sign, have a licensed commercial real estate attorney review your lease (budget $500–$1,500), consider a tenant rep broker (usually paid by the landlord), and ask other tenants in the building what the landlord is really like.</p>
+</div>
+
+<script type="module">
+import { SECTIONS, PLAYBOOK } from "./lib/playbook.js";
+const PB = Object.fromEntries(PLAYBOOK.map(p=>[p.id,p]));
+
+/* ---------- Example report shown at rest ---------- */
+const EXAMPLE = {
+  example:true,
+  summary:"This example LOI for a 1,400 sq ft strip-center suite gets the basics down but leaves out most tenant protections. The biggest gaps are the full personal guarantee, uncapped CPI increases, and no free rent beyond a 30-day build-out window.",
+  keyTerms:[
+    {label:"Premises",value:"Suite 104, 1,400 sq ft"},{label:"Term",value:"5 years"},
+    {label:"Base rent",value:"$24.00/sf/yr ($2,800/mo)"},{label:"Lease type",value:"NNN (est. $6.50/sf)"},
+    {label:"Increases",value:"CPI, no cap"},{label:"Deposit",value:"2 months"}
+  ],
+  findings:[
+    {id:"guarantee",status:"missing",priority:"high",found:"Tenant's principal to provide a full personal guaranty of all lease obligations.",ask:"Remove the personal guarantee. If you must keep one, change it to a Good Guy Guarantee limited to rent owed through surrender with 90 days' notice.",why:"A full guarantee puts your home and savings on the line for all five years, even if the business closes."},
+    {id:"abatement",status:"negotiate",priority:"high",found:"30 days of free rent for build-out.",ask:"3 months of free base rent starting at opening, in addition to the build-out period.",why:"Free rent after opening gives the club time to build a member base before rent is due."},
+    {id:"escalation",status:"negotiate",priority:"high",found:"Base rent to increase annually per CPI.",ask:"Annual increases of the lesser of CPI or 3%.",why:"Uncapped CPI increases can jump 5–8% in a high-inflation year."},
+    {id:"term",status:"negotiate",priority:"medium",found:"Five (5) year initial term.",ask:"A 3-year term, or keep 5 years only in exchange for more free rent and TI money.",why:"A 5-year term is fine only if you are paid for the commitment."},
+    {id:"hvac-cap",status:"missing",priority:"medium",found:"Not addressed.",ask:"Tenant pays routine HVAC service; repairs over $1,000 per year are the landlord's.",why:"A single HVAC unit can cost $5,000–$15,000 to replace."},
+    {id:"exclusive",status:"missing",priority:"medium",found:"Not addressed.",ask:"Landlord won't lease other space in the center to a business whose main use is smoothies, shakes, coffee or specialty drinks.",why:"Keeps a direct competitor from opening two doors down."},
+    {id:"renewal",status:"ok",priority:"low",found:"One 5-year renewal option at 3% over the prior year's rent.",ask:"No change needed.",why:"A set renewal price protects you from a big jump at renewal."}
+  ],
+  mismatches:[],
+  email:{subject:"Suite 104 LOI – requested changes",body:"Hi [Property Manager],\n\nThank you for sending over the LOI for Suite 104. We're excited about the space and would like to move forward. Before we sign, we'd like to request a few changes:\n\n1. Personal guarantee: we'd ask to remove it, or limit it to a Good Guy Guarantee covering rent through the date we surrender the space with 90 days' notice.\n2. Free rent: 3 months of free base rent after opening, in addition to the build-out period.\n3. Rent increases: annual increases of the lesser of CPI or 3%.\n...\n\nThanks,\n[Your name]"}
+};
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const STATUS = {missing:"Missing", negotiate:"Negotiate", ok:"Looks good", unclear:"Unclear", na:"N/A"};
+const PRIO_RANK = {high:0, medium:1, low:2};
+const STATUS_RANK = {missing:0, negotiate:1, unclear:2, ok:3, na:4};
+const MAX_CHARS = 150000;
+const MAX_SCAN_PAGES = 5;
+
+
+/* ---------- Playbook list ---------- */
+(function renderPlaybook(){
+  $("pbGrid").innerHTML = Object.entries(SECTIONS).map(([k,name]) =>
+    `<div><h4>${esc(name)}</h4><ul>${PLAYBOOK.filter(p=>p.s===k).map(p=>`<li>${esc(p.title)}</li>`).join("")}</ul></div>`).join("");
+})();
+
+/* ---------- File intake ---------- */
+const docs = {loi:null, lease:null}; // {name, text, images:[Blob], pages}
+function setupDrop(kind){
+  const drop = $(kind+"Drop"), input = $(kind+"File"), clear = $(kind+"Clear");
+  input.addEventListener("change", () => input.files[0] && load(kind, input.files[0]));
+  ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {ev.preventDefault(); drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {ev.preventDefault(); drop.classList.remove("over");}));
+  drop.addEventListener("drop", ev => { const f = ev.dataTransfer?.files?.[0]; if (f) load(kind, f); });
+  clear.addEventListener("click", ev => { ev.preventDefault(); ev.stopPropagation(); docs[kind]=null; input.value=""; paintDrop(kind); refreshGo(); });
+}
+function paintDrop(kind, metaText){
+  const d = docs[kind];
+  $(kind+"Drop").classList.toggle("has", !!d);
+  $(kind+"Name").textContent = d ? d.name : "Choose or drop a file";
+  $(kind+"Meta").textContent = metaText || (d ? describe(d) : "PDF, Word (.docx) or text");
+  $(kind+"Clear").hidden = !d;
+}
+function describe(d){
+  if (d.images?.length) return `Scanned PDF · ${d.pages} pages · first ${d.images.length} will be read as images`;
+  const words = d.text.split(/\s+/).filter(Boolean).length;
+  return `${d.pages ? d.pages + " pages · " : ""}${words.toLocaleString()} words read`;
+}
+async function load(kind, file){
+  paintDrop(kind, "Reading…");
+  $(kind+"Name").textContent = file.name;
+  try {
+    docs[kind] = await extract(file);
+    paintDrop(kind);
+    $("msg").hidden = true;
+    refreshGo();
+    if (!inView($("go"))) $("go").scrollIntoView({behavior:"auto", block:"center"});
+    $("go").focus({preventScroll:true});
+  } catch (e) {
+    docs[kind] = null; paintDrop(kind);
+    showMsg(e.message || "Couldn't read that file. Try a PDF or .docx, or paste the text.", true);
+  }
+  refreshGo();
+}
+async function extract(file){
+  const name = file.name, ext = name.toLowerCase().split(".").pop();
+  if (ext === "pdf" || file.type === "application/pdf") {
+    if (!window.pdfjsLib) throw new Error("The PDF reader didn't load. Refresh the page or paste the text instead.");
+    const pdf = await pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
+    let text = "";
+    for (let i=1;i<=pdf.numPages;i++){
+      const c = await (await pdf.getPage(i)).getTextContent();
+      text += `\n[Page ${i}]\n` + c.items.map(it => it.str + (it.hasEOL ? "\n" : " ")).join("");
+    }
+    const real = text.replace(/\[Page \d+\]/g,"").replace(/\s+/g,"");
+    if (real.length < 60 * pdf.numPages) {
+      // Scanned: read pages as images
+      const max = MAX_SCAN_PAGES;
+      const images = [];
+      for (let i=1;i<=Math.min(pdf.numPages, max);i++){
+        const page = await pdf.getPage(i), vp = page.getViewport({scale:1.25});
+        const cv = document.createElement("canvas"); cv.width = vp.width; cv.height = vp.height;
+        await page.render({canvasContext: cv.getContext("2d"), viewport: vp}).promise;
+        images.push(cv.toDataURL("image/jpeg", 0.7).split(",")[1]);
+      }
+      return {name, text:"", images, pages:pdf.numPages};
+    }
+    return {name, text, pages:pdf.numPages};
+  }
+  if (ext === "docx") {
+    if (!window.mammoth) throw new Error("The Word reader didn't load. Refresh the page or paste the text instead.");
+    const r = await mammoth.extractRawText({arrayBuffer: await file.arrayBuffer()});
+    return {name, text:r.value};
+  }
+  if (ext === "doc") throw new Error("Older .doc files can't be read here. Save it as .docx or PDF, or paste the text.");
+  if (["txt","md","rtf"].includes(ext) || file.type.startsWith("text/")) return {name, text: await file.text()};
+  throw new Error("Use a PDF, Word (.docx) or text file.");
+}
+["loi","lease"].forEach(setupDrop);
+["loiPaste","leasePaste"].forEach(id => $(id).addEventListener("input", refreshGo));
+function getDoc(kind){
+  const pasted = $(kind+"Paste").value.trim();
+  if (docs[kind]) return docs[kind];
+  if (pasted.length > 40) return {name:"Pasted text", text:pasted};
+  return null;
+}
+function showMsg(text, isErr){ const m=$("msg"); m.hidden=false; m.className = "status" + (isErr?"":" info"); m.innerHTML = text; }
+const smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+function inView(el){ const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }
+// Shown in the report column while a review runs, so it's obvious something is happening
+function renderProgress(what, n){
+  const pct = n ? Math.round(Math.min(n, PLAYBOOK.length) / PLAYBOOK.length * 100) : 4;
+  const p = $("report").querySelector(".progress:not(.err)");
+  if (p) { p.querySelector(".bar>span").style.width = pct + "%"; p.querySelector(".step").textContent = n ? `${Math.min(n, PLAYBOOK.length)} of ${PLAYBOOK.length} playbook items checked` : "Reading your document…"; return; }
+  $("report").innerHTML = `<section class="progress" role="status">
+    <h2><span class="spinner big-spin"></span>Reviewing your ${esc(what)}</h2>
+    <div class="bar"><span style="width:${pct}%"></span></div>
+    <p class="step" style="margin:0">${n ? "" : "Reading your document…"}</p>
+    <p class="keep" style="margin:0">Keep this page open. A review usually takes 30–90 seconds, longer for a full lease.</p>
+    <div><button type="button" class="btn ghost" id="stop2">Stop</button></div>
+  </section>`;
+  $("stop2").addEventListener("click", () => ctl?.abort());
+}
+function renderProblem(message){
+  $("report").innerHTML = `<section class="progress err" role="alert">
+    <h2>The review didn't finish</h2>
+    <p style="margin:0">${esc(message)}</p>
+    <p class="small">Your documents are still loaded. Press <b>Review my documents</b> to try again.</p>
+  </section>`;
+}
+addEventListener("beforeunload", e => { if (busy) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------- Review service ---------- */
+let busy = false, ctl;
+function refreshGo(){
+  const l = getDoc("loi"), s = getDoc("lease");
+  $("go").disabled = !(l || s) || busy;
+  $("go").textContent = busy ? "Reviewing…" : l && s ? "Review my LOI and lease" : l ? "Review my LOI" : s ? "Review my lease" : "Review my documents";
+}
+refreshGo();
+
+$("intake").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (busy) return;
+  const loi = getDoc("loi"), lease = getDoc("lease");
+  if (!loi && !lease) return;
+  const pack = d => d ? {name:d.name, text:(d.text||"").slice(0, MAX_CHARS), images:d.images||[]} : null;
+  const payload = {
+    loi: pack(loi), lease: pack(lease),
+    notes: $("notes").value.trim(), tone: $("tone").value,
+    sender: $("bizName").value.trim(), accessCode: $("accessCode").value.trim()
+  };
+  // Keep scanned pages under the upload limit: 5 pages total across both documents
+  if (payload.loi?.images.length && payload.lease?.images.length) {
+    payload.loi.images = payload.loi.images.slice(0, 2);
+    payload.lease.images = payload.lease.images.slice(0, 3);
+  }
+
+  busy = true; refreshGo(); ctl = new AbortController();
+  $("stop").hidden = false;
+  const what = loi && lease ? "LOI and lease" : loi ? "LOI" : "lease";
+  $("msg").hidden = true;
+  busy = true; refreshGo();
+  renderProgress(what, 0);
+  showMsg(`<span class="spinner"></span>Reviewing your ${what}… keep this page open (30–90 seconds).`);
+  // Bring the progress panel into view right away (instant, so a shrinking page can't interrupt it)
+  requestAnimationFrame(() => { const t = $("report").getBoundingClientRect().top; if (t < 0 || t > innerHeight - 120) scrollTo({top: Math.max(0, t + scrollY - 16), behavior:"auto"}); });
+  try {
+    const r = await fetch("/api/review", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(payload), signal: ctl.signal});
+    if (!r.ok) {
+      let err = null; try { err = await r.json(); } catch {}
+      if (err?.needCode) $("codeWrap").hidden = false;
+      throw new Error(err?.error || (r.status === 413 ? "These files are too large to upload. Try a text-based PDF or paste the text." : "The review couldn't be completed. Try again."));
+    }
+    // The review streams in as it is written
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let text = "", lastCount = -1;
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      text += dec.decode(value, {stream:true});
+      const n = (text.match(/"status"\s*:/g) || []).length;
+      if (n !== lastCount) { lastCount = n; renderProgress(what, n); if (n) showMsg(`<span class="spinner"></span>Writing the review… ${Math.min(n, PLAYBOOK.length)} of ${PLAYBOOK.length} items checked`); }
+    }
+    const errAt = text.indexOf("\u0000ERROR:");
+    if (errAt >= 0) throw new Error(text.slice(errAt + 7));
+    let data = null;
+    try { data = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); } catch {}
+    if (!data || !Array.isArray(data.findings)) throw new Error("The review came back incomplete. Press Review again.");
+    filter = "action";
+    renderReport(data);
+    $("msg").hidden = true;
+    $("report").scrollIntoView({behavior: smooth(), block:"start"});
+  } catch (e) {
+    if (e.name === "AbortError") { renderReport(current || EXAMPLE); showMsg("Stopped. Your documents are still loaded.", false); }
+    else { const m = e.message || "Couldn't reach the review service. Check your connection and try again."; renderProblem(m); showMsg(esc(m), true); }
+  } finally {
+    busy = false; $("stop").hidden = true; refreshGo();
+  }
+});
+$("stop").addEventListener("click", () => ctl?.abort());
+
+/* ---------- Report ---------- */
+let filter = "action", current;
+function renderReport(data){
+  current = data;
+  const fs = (data.findings||[]).filter(f => PB[f.id]).sort((a,b) =>
+    (PRIO_RANK[a.priority]??1)-(PRIO_RANK[b.priority]??1) || (STATUS_RANK[a.status]??2)-(STATUS_RANK[b.status]??2));
+  const count = s => fs.filter(f=>f.status===s).length;
+  const action = count("missing")+count("negotiate");
+  const shown = fs.filter(f => filter==="all" ? f.status!=="na" : filter==="action" ? (f.status==="missing"||f.status==="negotiate") : f.status===filter);
+
+  const chip = (key,label,n,color) => `<button type="button" class="chip" data-f="${key}" aria-pressed="${filter===key}">${color?`<span class="dot" style="background:var(${color})"></span>`:""}${label} <span>${n}</span></button>`;
+
+  $("report").innerHTML = `
+    ${data.example ? `<div class="banner">Example report · fictional LOI · upload yours to replace it</div>` : ""}
+    <section class="summary">
+      <h2>${action ? `${action} term${action===1?"":"s"} to negotiate` : "Nothing major to negotiate"}</h2>
+      <p>${esc(data.summary)}</p>
+    </section>
+    ${data.keyTerms?.length ? `<section style="display:flex;flex-direction:column;gap:8px"><h3>Deal terms found</h3>
+      <div class="terms">${data.keyTerms.map(t=>`<div class="term"><div class="k">${esc(t.label)}</div><div class="v">${esc(t.value)}</div></div>`).join("")}</div></section>` : ""}
+    <section style="display:flex;flex-direction:column;gap:12px">
+      <div class="section-h"><h2>Redline</h2><span class="small">Checked against ${PLAYBOOK.length} playbook items</span></div>
+      <div class="tally" role="group" aria-label="Filter findings">
+        ${chip("action","Needs action",action)}
+        ${chip("missing","Missing",count("missing"),"--red")}
+        ${chip("negotiate","Negotiate",count("negotiate"),"--amber")}
+        ${chip("ok","Looks good",count("ok"),"--green")}
+        ${chip("unclear","Unclear",count("unclear"),"--muted")}
+        ${chip("all","All",fs.filter(f=>f.status!=="na").length)}
+      </div>
+      <div class="findings">${shown.length ? shown.map(findingHTML).join("") : `<p class="small">Nothing in this group.</p>`}</div>
+      ${count("na") ? `<p class="small">${count("na")} item${count("na")===1?"":"s"} didn't apply: ${fs.filter(f=>f.status==="na").map(f=>esc(PB[f.id].title)).join(", ")}.</p>` : ""}
+    </section>
+    ${data.mismatches?.length ? `<section style="display:flex;flex-direction:column;gap:10px">
+      <div class="section-h"><h2>LOI vs. lease</h2><span class="small">${data.mismatches.length} difference${data.mismatches.length===1?"":"s"}</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Term</th><th>LOI said</th><th>Lease says</th><th>What to do</th></tr></thead><tbody>
+      ${data.mismatches.map(m=>`<tr><td><b>${esc(m.term)}</b></td><td class="del">${esc(m.loi)}</td><td>${esc(m.lease)}</td><td>${esc(m.note)}</td></tr>`).join("")}
+      </tbody></table></div></section>` : ""}
+    <p class="legal-line">Not legal advice. This AI-generated review is general guidance only and may miss or misread terms. Confirm everything with a licensed commercial real estate attorney before you sign.</p>
+    ${data.email ? `<section class="email">
+      <div class="section-h" style="border:0;padding:0"><h2>Reply to your property manager</h2></div>
+      <div><label class="lbl" for="emSubject">Subject</label><input type="text" id="emSubject" value="${esc(data.email.subject)}"></div>
+      <div><label class="lbl" for="emBody">Message</label><textarea id="emBody">${esc(data.email.body)}</textarea></div>
+      <div class="email-actions"><button type="button" class="btn primary" id="copyEm">Copy email</button><span class="small" id="copyNote">Edit it here, then paste it into your email.</span></div>
+    </section>` : ""}
+  `;
+  $("report").querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => { filter = b.dataset.f; renderReport(current); }));
+  $("copyEm")?.addEventListener("click", async () => {
+    const txt = `Subject: ${$("emSubject").value}\n\n${$("emBody").value}`;
+    try { await navigator.clipboard.writeText(txt); $("copyNote").textContent = "Copied. Paste it into your email."; }
+    catch { $("emBody").focus(); $("emBody").select(); $("copyNote").textContent = "Press Ctrl+C (or ⌘C) to copy the selected message."; }
+  });
+}
+function findingHTML(f){
+  const p = PB[f.id];
+  return `<article class="f ${esc(f.status)}">
+    <div class="f-top"><span class="f-title">${esc(p.title)}</span><span class="prio ${esc(f.priority)}">${esc(f.priority||"")} priority</span><span class="pill ${esc(f.status)}">${STATUS[f.status]||esc(f.status)}</span></div>
+    <div class="f-cols">
+      <div><div class="k">Your document</div><div class="found">${f.found && !/^not addressed/i.test(f.found) ? `<q>${esc(f.found)}</q>` : `<span style="color:var(--muted)">Not addressed.</span>`}</div></div>
+      <div><div class="k">Playbook target</div><div class="target">${esc(p.target)}</div></div>
+    </div>
+    ${f.status!=="ok" ? `<div class="ask"><b>Ask for</b>${esc(f.ask)}</div>` : ""}
+    ${f.why ? `<p class="why">${esc(f.why)}</p>` : ""}
+  </article>`;
+}
+renderReport(EXAMPLE);
+</script>
+</body>
+</html>
