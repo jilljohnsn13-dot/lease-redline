@@ -1,3 +1,5 @@
+> **Moved:** this tool now lives at https://team-abundance.jilljohnsn13.workers.dev/lease/ (Lease/LOI Guidance). This site redirects there. The current code is in the `team-abundance` repository.
+
 # Lease Redline
 
 A website where anyone can upload a Letter of Intent (LOI) or commercial lease and get:
